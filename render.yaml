@@ -15,4 +15,4 @@ services:
       - key: NOTION_TOKEN
         sync: false
       - key: NOTION_DB_ID
-        value: 6473e98cd505436ba644d354cc2d527a
+        value: 2fa4ab8f003742d0ab9d6527f9180502

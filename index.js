@@ -18,7 +18,7 @@ const TG_API = `https://api.telegram.org/bot${TG_TOKEN}`;
 const FB_URL = process.env.FIREBASE_DB_URL || 'https://gerenciador-ikaro-default-rtdb.firebaseio.com';
 const FB_KEY = process.env.FIREBASE_API_KEY || '';
 const NOTION_TOKEN = process.env.NOTION_TOKEN || '';
-const NOTION_DB_ID = process.env.NOTION_DB_ID || '6473e98cd505436ba644d354cc2d527a';
+const NOTION_DB_ID = process.env.NOTION_DB_ID || '2fa4ab8f003742d0ab9d6527f9180502';
 const NOTION_API = 'https://api.notion.com/v1';
 
 let lastUpdateId = 0;
