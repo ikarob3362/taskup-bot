@@ -107,43 +107,66 @@ const categoriaMap = {
   'TI': 'TI'
 };
 
+// Extrai o título da tarefa com fallbacks para diferentes nomes de campo
+function getTaskTitle(task) {
+  return task.title || task.name || task.titulo || task.nome || task.text || task.tarefa || '';
+}
+
+// Verifica se a tarefa tem dados mínimos para sync
+function isValidTask(task) {
+  if (!task || typeof task !== 'object') return false;
+  const title = getTaskTitle(task);
+  // Pula tarefas sem título ou que são metadados internos
+  if (!title) return false;
+  // Pula se for apenas um valor primitivo (não é objeto de tarefa)
+  if (typeof task === 'string' || typeof task === 'number') return false;
+  return true;
+}
+
 function buildNotionProperties(task) {
+  const title = getTaskTitle(task);
   const props = {
-    'Tarefa': { title: [{ text: { content: task.title || 'Sem título' } }] }
+    'Tarefa': { title: [{ text: { content: title || 'Sem título' } }] }
   };
 
-  // Status
-  const status = statusMap[task.status];
+  // Status (com fallbacks)
+  const rawStatus = task.status || task.estado || '';
+  const status = statusMap[rawStatus];
   if (status) props['Status'] = { select: { name: status } };
 
-  // Prioridade
-  const prio = priorityMap[task.priority];
+  // Prioridade (com fallbacks)
+  const rawPrio = task.priority || task.prioridade || '';
+  const prio = priorityMap[rawPrio];
   if (prio) props['Prioridade'] = { select: { name: prio } };
 
-  // Empresa
-  const empresa = empresaMap[task.company] || empresaMap[task.empresa];
+  // Empresa (com fallbacks)
+  const rawEmpresa = task.company || task.empresa || '';
+  const empresa = empresaMap[rawEmpresa];
   if (empresa) props['Empresa'] = { select: { name: empresa } };
 
-  // Categoria
-  const cat = categoriaMap[task.category] || categoriaMap[task.categoria];
+  // Categoria (com fallbacks)
+  const rawCat = task.category || task.categoria || '';
+  const cat = categoriaMap[rawCat];
   if (cat) props['Categoria'] = { select: { name: cat } };
 
-  // Prazo (dueDate em timestamp ou ISO)
-  if (task.dueDate) {
+  // Prazo (dueDate em timestamp ou ISO, com fallbacks)
+  const rawDate = task.dueDate || task.prazo || task.deadline || '';
+  if (rawDate) {
     let dateStr;
-    const ts = parseInt(task.dueDate);
+    const ts = parseInt(rawDate);
     if (!isNaN(ts) && ts > 1000000000) {
       dateStr = new Date(ts).toISOString().split('T')[0];
-    } else if (typeof task.dueDate === 'string' && task.dueDate.includes('-')) {
-      dateStr = task.dueDate.split('T')[0];
+    } else if (typeof rawDate === 'string' && rawDate.includes('-')) {
+      dateStr = rawDate.split('T')[0];
     }
     if (dateStr) props['Prazo'] = { date: { start: dateStr } };
   }
 
-  // Observações
-  if (task.description || task.notes || task.observacoes) {
+  // Observações (com fallbacks)
+  const rawObs = task.description || task.notes || task.observacoes || task.descricao || task.obs || '';
+  if (rawObs) {
     props['Observa\u00e7\u00f5es'] = {
-      rich_text: [{ text: { content: (task.description || task.notes || task.observacoes).substring(0, 2000) } }]
+      rich_text: [{ text: { content: rawObs.substring(0, 2000) } }]
     };
   }
 
@@ -167,7 +190,7 @@ async function notionCreatePage(task) {
       return null;
     }
     const data = await res.json();
-    console.log(`📝 Notion: criada página ${data.id} para "${task.title}"`);
+    console.log(`📝 Notion: criada página ${data.id} para "${getTaskTitle(task)}"`);
     return data.id;
   } catch(e) {
     console.error('Notion CREATE error:', e.message);
@@ -209,8 +232,17 @@ async function syncFirebaseToNotion() {
 
   let created = 0, updated = 0, errors = 0;
 
+  let skipped = 0;
+
   for (const [taskId, task] of Object.entries(tasks)) {
     try {
+      // Valida se a tarefa tem dados mínimos
+      if (!isValidTask(task)) {
+        console.log(`⏭️ Pulando tarefa ${taskId}: sem título ou dados inválidos`);
+        skipped++;
+        continue;
+      }
+
       if (task.notionPageId) {
         // Já existe no Notion → atualizar
         const ok = await notionUpdatePage(task.notionPageId, task);
@@ -234,7 +266,7 @@ async function syncFirebaseToNotion() {
     }
   }
 
-  console.log(`✅ Sync completo: ${created} criadas, ${updated} atualizadas, ${errors} erros`);
+  console.log(`✅ Sync completo: ${created} criadas, ${updated} atualizadas, ${skipped} puladas, ${errors} erros`);
 }
 
 // ======================== TELEGRAM API ========================
@@ -354,10 +386,12 @@ async function handleSync(chatId) {
   const tasks = await fbGet('tasks');
   if (!tasks) return sendMsg(chatId, '\u{1F4CB} Nenhuma tarefa para sincronizar.');
 
-  let created = 0, updated = 0, errors = 0;
+  let created = 0, updated = 0, errors = 0, skipped = 0;
 
   for (const [taskId, task] of Object.entries(tasks)) {
     try {
+      if (!isValidTask(task)) { skipped++; continue; }
+
       if (task.notionPageId) {
         const ok = await notionUpdatePage(task.notionPageId, task);
         if (ok) updated++; else errors++;
@@ -376,6 +410,7 @@ async function handleSync(chatId) {
     `\u2705 <b>Sync Completo!</b>\n\n` +
     `\u{1F195} Criadas no Notion: ${created}\n` +
     `\u{1F504} Atualizadas: ${updated}\n` +
+    (skipped ? `\u23ED Puladas (sem título): ${skipped}\n` : '') +
     (errors ? `\u274C Erros: ${errors}\n` : '') +
     `\n\u{1F4CB} Total: ${Object.keys(tasks).length} tarefas`
   );
