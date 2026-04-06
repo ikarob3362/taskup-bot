@@ -12,3 +12,7 @@ services:
         value: https://gerenciador-ikaro-default-rtdb.firebaseio.com
       - key: FIREBASE_API_KEY
         value: AIzaSyBC810jscH5K2rOrgw50qGK_IkDY4akB7M
+      - key: NOTION_TOKEN
+        sync: false
+      - key: NOTION_DB_ID
+        value: 6473e98cd505436ba644d354cc2d527a
