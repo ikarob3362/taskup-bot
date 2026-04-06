@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: taskup-bot
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: TG_BOT_TOKEN
+        value: 8401409685:AAGP1oYy1eaFw3EEQhhv62_NTba1WTRh9A0
+      - key: FIREBASE_DB_URL
+        value: https://gerenciador-ikaro-default-rtdb.firebaseio.com
+      - key: FIREBASE_API_KEY
+        value: AIzaSyBC810jscH5K2rOrgw50qGK_IkDY4akB7M
